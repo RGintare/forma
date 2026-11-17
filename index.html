@@ -1,0 +1,112 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Forma</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="theme-color" content="#1f8a5b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Forma">
+<style>
+/* Layout: viena kolona, apacioje juosta su 4 skiltimis; telefonui */
+:root{--bg:#f2f6f4;--card:#fff;--ink:#12261f;--mute:#5d726a;--line:#dde7e2;--food:#1f8a5b;--sport:#e8663d;--water:#2f7fd1;--on:#fff;
+--fd:'Space Grotesk',system-ui,sans-serif;--fb:'Inter',system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1714;--card:#17231f;--ink:#e8f1ed;--mute:#93a9a0;--line:#26362f;--food:#3fc088;--sport:#ff8a63;--water:#5aa5f0;--on:#08130e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1714;--card:#17231f;--ink:#e8f1ed;--mute:#93a9a0;--line:#26362f;--food:#3fc088;--sport:#ff8a63;--water:#5aa5f0;--on:#08130e;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg,var(--ink));font:16px/1.4 var(--fb);padding-block:16px 96px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font:700 26px var(--fd);margin:0}
+h2{font:600 13px var(--fb);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.big{font:700 40px var(--fd);font-variant-numeric:tabular-nums}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp{justify-content:space-between}
+.mute{color:var(--mute);font-size:14px}
+.bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:5px;background:var(--food);max-width:100%}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.stats b{display:block;font:700 20px var(--fd);font-variant-numeric:tabular-nums}
+input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0;width:100%}
+input:focus-visible,button:focus-visible{outline:2px solid var(--food);outline-offset:2px}
+button{font:600 15px var(--fb);border:0;border-radius:10px;padding:12px 16px;background:var(--food);color:var(--on);cursor:pointer}
+button.ghost{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+button.x{background:none;color:var(--mute);padding:6px 10px;font-size:20px}
+.sport button.go{background:var(--sport)}
+.form{display:grid;grid-template-columns:1fr 90px;gap:8px}
+.form button{grid-column:1/-1}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chips button{padding:7px 11px;font-size:13px;font-weight:500}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+li:first-child{border-top:0}
+.week{display:flex;gap:6px;align-items:flex-end;height:90px}
+.week div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%;font-size:12px;color:var(--mute)}
+.week i{width:100%;background:var(--food);border-radius:5px 5px 0 0;min-height:2px}
+.water{display:flex;gap:6px;flex-wrap:wrap}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+nav button{flex:1;background:none;color:var(--mute);padding:10px 4px;font-size:13px}
+nav button[aria-current=true]{color:var(--food)}
+.empty{color:var(--mute);font-size:14px;padding:6px 0}
+</style>
+<main id="app"></main>
+<nav id="nav"></nav>
+<script>
+const TABS=[['today','Šiandien'],['food','Maistas'],['sport','Sportas'],['goals','Tikslai']];
+const FOODS=[['Obuolys',80],['Kiaušinis',70],['Avižų košė',150],['Vištienos krūtinėlė',165],['Jogurtas',100],['Duona (riekė)',80]];
+const SPORTS=[['Bėgimas 30 min',300],['Ėjimas 30 min',120],['Jėgos treniruotė 45 min',250],['Joga 30 min',100],['Dviratis 30 min',210]];
+let S={goal:{kcal:2000,water:2000},days:{}},tab='today';
+try{const s=JSON.parse(localStorage.getItem('forma'));if(s)S=s}catch(e){}
+const save=()=>{try{localStorage.setItem('forma',JSON.stringify(S))}catch(e){}};
+const key=d=>d.toLocaleDateString('sv');
+const day=k=>S.days[k]||(S.days[k]={meals:[],sport:[],water:0});
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sum=(a,f)=>a.reduce((t,x)=>t+x[f],0);
+const T=key(new Date());
+const chips=(l,t)=>`<div class="chips">${l.map((x,i)=>`<button class="ghost" data-chip="${t}${i}">${esc(x[0])} · ${x[1]}</button>`).join('')}</div>`;
+const list=(a,t)=>a.length?`<ul>${a.map((x,i)=>`<li><span>${esc(x.n)}</span><span class="row">${x.k} kcal<button class="x" data-del="${t}${i}" aria-label="Šalinti">×</button></span></li>`).join('')}</ul>`:'<div class="empty">Dar nieko nėra.</div>';
+
+function view(){
+ const d=day(T),eaten=sum(d.meals,'k'),burned=sum(d.sport,'k'),left=S.goal.kcal-eaten+burned;
+ if(tab==='today'){
+  const wk=[...Array(7)].map((_,i)=>{const dt=new Date();dt.setDate(dt.getDate()-6+i);const k=key(dt);return[dt.toLocaleDateString('lt',{weekday:'short'}).slice(0,2),sum((S.days[k]||{meals:[]}).meals,'k')]});
+  const mx=Math.max(S.goal.kcal,...wk.map(w=>w[1]));
+  return `<h1>Šiandien</h1>
+  <div class="card"><h2>Kalorijos</h2><div class="big">${left}</div><div class="mute">liko iš ${S.goal.kcal} kcal</div>
+  <div class="bar" style="margin-top:10px"><i style="width:${Math.min(100,eaten/S.goal.kcal*100)}%"></i></div>
+  <div class="stats"><div><b>${eaten}</b><span class="mute">suvalgyta</span></div><div><b style="color:var(--sport)">${burned}</b><span class="mute">sudeginta</span></div><div><b>${d.meals.length+d.sport.length}</b><span class="mute">įrašų</span></div></div></div>
+  <div class="card"><h2>Vanduo</h2><div class="row sp"><div><span class="big" style="color:var(--water)">${d.water}</span> <span class="mute">/ ${S.goal.water} ml</span></div></div>
+  <div class="bar" style="margin:8px 0 12px"><i style="width:${Math.min(100,d.water/S.goal.water*100)}%;background:var(--water)"></i></div>
+  <div class="water"><button data-w="250">+250 ml</button><button data-w="500">+500 ml</button><button class="ghost" data-w="-250">−250</button></div></div>
+  <div class="card"><h2>Savaitė (kcal)</h2><div class="week">${wk.map(w=>`<div>${w[1]||''}<i style="height:${w[1]/mx*60}px"></i>${w[0]}</div>`).join('')}</div></div>`;
+ }
+ if(tab==='food')return `<h1>Maistas</h1><form class="card form" id="fm"><input id="fn" placeholder="Pavadinimas" required><input id="fk" type="number" inputmode="numeric" min="0" placeholder="kcal" required><button>Pridėti</button></form>
+  <div class="card"><h2>Greitai pridėti</h2>${chips(FOODS,'f')}</div><div class="card"><h2>Šiandien · ${eaten} kcal</h2>${list(d.meals,'m')}</div>`;
+ if(tab==='sport')return `<h1>Sportas</h1><form class="card form sport" id="sm"><input id="sn" placeholder="Veikla" required><input id="sk" type="number" inputmode="numeric" min="0" placeholder="kcal" required><button class="go">Pridėti</button></form>
+  <div class="card"><h2>Greitai pridėti</h2>${chips(SPORTS,'s')}</div><div class="card"><h2>Šiandien · ${burned} kcal</h2>${list(d.sport,'s')}</div>`;
+ return `<h1>Tikslai</h1><form class="card" id="gm" style="display:flex;flex-direction:column;gap:10px"><label class="mute" for="gk">Dienos kalorijos (kcal)</label><input id="gk" type="number" inputmode="numeric" min="500" value="${S.goal.kcal}"><label class="mute" for="gw">Vanduo per dieną (ml)</label><input id="gw" type="number" inputmode="numeric" min="500" step="250" value="${S.goal.water}"><button>Išsaugoti</button></form>
+  <p class="mute">Duomenys saugomi tik šiame telefone. Kalorijų skaičiai apytiksliai, tai ne medicininė rekomendacija.</p>`;
+}
+function render(){
+ app.innerHTML=view();
+ nav.innerHTML=TABS.map(t=>`<button data-tab="${t[0]}" aria-current="${t[0]===tab}">${t[1]}</button>`).join('');
+}
+document.addEventListener('click',e=>{
+ const b=e.target.closest('button');if(!b)return;const d=day(T),D=b.dataset;
+ if(D.tab)tab=D.tab;
+ else if(D.w)d.water=Math.max(0,d.water+ +D.w);
+ else if(D.chip){const i=+D.chip.slice(1),f=D.chip[0]==='f',x=(f?FOODS:SPORTS)[i];(f?d.meals:d.sport).push({n:x[0],k:x[1]})}
+ else if(D.del)d[D.del[0]==='m'?'meals':'sport'].splice(+D.del.slice(1),1);
+ else return;
+ save();render();
+});
+document.addEventListener('submit',e=>{
+ e.preventDefault();const d=day(T),v=i=>document.getElementById(i).value;
+ if(e.target.id==='fm')d.meals.push({n:v('fn').trim(),k:+v('fk')});
+ else if(e.target.id==='sm')d.sport.push({n:v('sn').trim(),k:+v('sk')});
+ else S.goal={kcal:+v('gk')||2000,water:+v('gw')||2000};
+ save();render();
+});
+render();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
